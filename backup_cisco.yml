@@ -1,0 +1,73 @@
+---
+- name: Backup Cisco Configuration to GitHub
+  hosts: cisco_devices
+  gather_facts: no
+  vars:
+    # Thư mục tạm để lưu config trước khi push
+    backup_root: "./backups"
+    timestamp: "{{ ansible_date_time.date }}"
+
+  tasks:
+    - name: Ensure backup directory exists
+      file:
+        path: "{{ backup_root }}"
+        state: directory
+
+    - name: Get running configuration from IOS devices
+      cisco.ios.ios_command:
+        commands: show running-config
+      register: config_output
+
+    - name: Save configuration to local file
+      copy:
+        content: "{{ config_output.stdout[0] }}"
+        dest: "{{ backup_root }}/{{ inventory_hostname }}_{{ timestamp }}.cfg"
+
+    - name: Git Automation - Add, Commit and Push
+      shell: |
+        git config user.name "AWX Automation"
+        git config user.email "awx@yourdomain.com"
+        git add .
+        git commit -m "Automated backup - {{ timestamp }}"
+        git push https://{{ github_user }}:{{ github_token }}@[github.com/](https://github.com/){{ github_repo_path }}.git main
+      delegate_to: localhost
+      run_once: true
+      environment:
+        github_user: "your_github_username"
+        github_token: "{{ lookup('env', 'GITHUB_TOKEN') }}"
+        github_repo_path: "your_username/cisco-backups"
+
+
+3. Thiết lập trên AWX
+
+Bước 1: Tạo Credentials (Thông tin xác thực)
+
+Machine Credential: Lưu Username/Password để login vào Router/Switch Cisco.
+
+Source Control Credential: Để AWX có thể kéo Playbook từ GitHub về.
+
+Environment Variable Credential: Tạo một Credential loại "Environment Variables" để lưu GITHUB_TOKEN. Điều này giúp bảo mật Token của bạn.
+
+Bước 2: Tạo Inventory
+
+Thêm danh sách các Router/Switch của bạn vào mục Hosts.
+
+Đảm bảo biến ansible_network_os=cisco.ios.ios được định nghĩa cho group hoặc host.
+
+Bước 3: Tạo Project
+
+Trỏ đến GitHub Repository chứa file backup_cisco.yml.
+
+Quan trọng: Chọn Execution Environment là cisco-ee:1.0 (cái bạn vừa build).
+
+Bước 4: Tạo Job Template
+
+Inventory: Chọn Inventory thiết bị Cisco.
+
+Project: Chọn Project chứa Playbook.
+
+Playbook: Chọn backup_cisco.yml.
+
+Credentials: Chọn cả 3 loại (Machine, Source Control, và Env Variable).
+
+Execution Environment: Chọn cisco-ee:1.0.
