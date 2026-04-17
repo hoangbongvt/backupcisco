@@ -1,40 +1,31 @@
 ---
-- name: Backup Cisco Configuration to GitHub
+- name: Test Backup Cisco - No Git
   hosts: 127LD_T3_SW-01
   gather_facts: no
   vars:
-    backup_root: "./backups"
-    # Dùng hàm now() thay cho ansible_date_time để không bị lỗi khi gather_facts: no
+    # Dùng thư mục /tmp để tránh lỗi Permission (quyền hạn) trong container
+    backup_root: "/tmp/backups"
+    # Lấy ngày giờ mà không cần gather_facts
     timestamp: "{{ now(fmt='%Y-%m-%d') }}"
 
   tasks:
-    - name: Ensure backup directory exists
+    - name: 1. Tao thu muc tam tren AWX
       file:
         path: "{{ backup_root }}"
         state: directory
       delegate_to: localhost
 
-    - name: Get running configuration from IOS devices
+    - name: 2. Lay cấu hình từ Switch Cisco
       cisco.ios.ios_command:
         commands: show running-config
       register: config_output
 
-    - name: Save configuration to local file
+    - name: 3. Luu cau hinh vao file text tren AWX
       copy:
         content: "{{ config_output.stdout[0] }}"
         dest: "{{ backup_root }}/{{ inventory_hostname }}_{{ timestamp }}.cfg"
-      delegate_to: localhost  # BẮT BUỘC PHẢI CÓ DÒNG NÀY
-
-    - name: Git Automation - Add, Commit and Push
-      shell: |
-        git config user.name "AWX Automation"
-        git config user.email "awx@yourdomain.com"
-        git add .
-        git commit -m "Automated backup - {{ timestamp }}"
-        git push https://{{ github_user }}:{{ github_token }}@github.com/{{ github_repo_path }}.git main
       delegate_to: localhost
-      run_once: true
-      environment:
-        github_user: "hoangbongvt"
-        github_token: "{{ lookup('env', 'GITHUB_TOKEN') }}"
-        github_repo_path: "hoangbongvt/cisco-backups"
+
+    - name: 4. Thong bao ket qua (Debug)
+      debug:
+        msg: "Da luu file thanh cong tai {{ backup_root }}/{{ inventory_hostname }}_{{ timestamp }}.cfg"
