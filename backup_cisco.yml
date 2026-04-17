@@ -31,3 +31,4 @@
     - name: 4. Thong bao ket qua (Debug)
       debug:
         msg: "Da luu file thanh cong tai {{ backup_root }}/{{ inventory_hostname }}_{{ timestamp }}.cfg"
+        #qưeee
