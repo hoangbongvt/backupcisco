@@ -14,6 +14,7 @@
         path: "{{ backup_root }}"
         state: directory
       delegate_to: localhost
+      become: false  # THÊM DÒNG NÀY ĐỂ BỎ QUA SUD
 
     - name: 2. Lay cấu hình từ Switch Cisco
       cisco.ios.ios_command:
@@ -25,6 +26,7 @@
         content: "{{ config_output.stdout[0] }}"
         dest: "{{ backup_root }}/{{ inventory_hostname }}_{{ timestamp }}.cfg"
       delegate_to: localhost
+      become: false  # THÊM DÒNG NÀY LUÔN
 
     - name: 4. Thong bao ket qua (Debug)
       debug:
