@@ -3,15 +3,16 @@
   hosts: 127LD_T3_SW-01
   gather_facts: no
   vars:
-    # Thư mục tạm để lưu config trước khi push
     backup_root: "./backups"
-    timestamp: "{{ ansible_date_time.date }}"
+    # Dùng hàm now() thay cho ansible_date_time để không bị lỗi khi gather_facts: no
+    timestamp: "{{ now(fmt='%Y-%m-%d') }}"
 
   tasks:
     - name: Ensure backup directory exists
       file:
         path: "{{ backup_root }}"
         state: directory
+      delegate_to: localhost
 
     - name: Get running configuration from IOS devices
       cisco.ios.ios_command:
@@ -22,6 +23,7 @@
       copy:
         content: "{{ config_output.stdout[0] }}"
         dest: "{{ backup_root }}/{{ inventory_hostname }}_{{ timestamp }}.cfg"
+      delegate_to: localhost  # BẮT BUỘC PHẢI CÓ DÒNG NÀY
 
     - name: Git Automation - Add, Commit and Push
       shell: |
@@ -29,11 +31,10 @@
         git config user.email "awx@yourdomain.com"
         git add .
         git commit -m "Automated backup - {{ timestamp }}"
-        git push https://{{ github_user }}:{{ github_token }}@[github.com/](https://github.com/){{ github_repo_path }}.git main
+        git push https://{{ github_user }}:{{ github_token }}@github.com/{{ github_repo_path }}.git main
       delegate_to: localhost
       run_once: true
       environment:
-        github_user: "your_github_username"
+        github_user: "hoangbongvt"
         github_token: "{{ lookup('env', 'GITHUB_TOKEN') }}"
-        github_repo_path: "your_username/cisco-backups"
-
+        github_repo_path: "hoangbongvt/cisco-backups"
