@@ -1,6 +1,6 @@
 ---
 - name: Backup Cisco Configuration to GitHub
-  hosts: cisco_devices
+  hosts: 127LD_T3_SW-01
   gather_facts: no
   vars:
     # Thư mục tạm để lưu config trước khi push
