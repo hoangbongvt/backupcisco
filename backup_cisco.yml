@@ -12,6 +12,7 @@
       file:
         path: "{{ backup_root }}"
         state: directory
+        delegate_to: localhost
 
     - name: Get running configuration from IOS devices
       cisco.ios.ios_command:
