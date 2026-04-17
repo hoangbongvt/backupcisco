@@ -1,34 +1,64 @@
 ---
-- name: Test Backup Cisco - No Git
-  hosts: 127LD_T3_SW-01
-  gather_facts: no
+- name: Backup Cisco Config and Push to GitHub
+  hosts: all
+  gather_facts: false
+  
   vars:
-    # Dùng thư mục /tmp để tránh lỗi Permission (quyền hạn) trong container
-    backup_root: "/tmp/backups"
-    # Lấy ngày giờ mà không cần gather_facts
-    timestamp: "{{ now(fmt='%Y-%m-%d') }}"
+    # Thư mục tạm trên AWX Container để chứa code Git
+    backup_root: "/tmp/git_backups"
+    
+    # Định dạng thời gian để làm tên file và log commit
+    timestamp: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
 
   tasks:
-    - name: 1. Tao thu muc tam tren AWX
-      file:
-        path: "{{ backup_root }}"
-        state: directory
-      delegate_to: localhost
-      become: false  # THÊM DÒNG NÀY ĐỂ BỎ QUA SUD
-
-    - name: 2. Lay cấu hình từ Switch Cisco
+    - name: 1. Lay cau hinh tu Switch Cisco
       cisco.ios.ios_command:
         commands: show running-config
       register: config_output
 
-    - name: 3. Luu cau hinh vao file text tren AWX
+    - name: 2. Don dep thu muc tam tren AWX (Tranh xung dot code cu)
+      file:
+        path: "{{ backup_root }}"
+        state: absent
+      delegate_to: localhost
+      run_once: true
+      become: false
+
+    - name: 3. Clone kho GitHub ve AWX Container
+      git:
+        # Sử dụng Token để xác thực tự động
+        repo: "https://{{ github_token }}@github.com/hoangbongvt/backupcisco.git"
+        dest: "{{ backup_root }}"
+        clone: yes
+        update: yes
+      delegate_to: localhost
+      run_once: true
+      become: false
+
+    - name: 4. Luu file cau hinh vao thu muc Git
       copy:
         content: "{{ config_output.stdout[0] }}"
+        # Lưu định dạng file: TenThietBi_NgayThang.cfg (VD: 127LD_T3_SW-01_20260417_153000.cfg)
         dest: "{{ backup_root }}/{{ inventory_hostname }}_{{ timestamp }}.cfg"
       delegate_to: localhost
-      become: false  # THÊM DÒNG NÀY LUÔN
+      become: false
 
-    - name: 4. Thong bao ket qua (Debug)
-      debug:
-        msg: "Da luu file thanh cong tai {{ backup_root }}/{{ inventory_hostname }}_{{ timestamp }}.cfg"
-        #qưeee
+    - name: 5. Commit va Push len GitHub
+      shell: |
+        git config user.name "AWX Backup Bot"
+        git config user.email "awx@shb.com.vn"
+        
+        git add .
+        
+        # Kiem tra xem co su thay doi nao khong truoc khi commit
+        if ! git diff-index --quiet HEAD; then
+          git commit -m "Auto backup configs - {{ timestamp }}"
+          git push origin main
+        else
+          echo "Khong co su thay doi cau hinh nao de push."
+        fi
+      args:
+        chdir: "{{ backup_root }}"
+      delegate_to: localhost
+      run_once: true
+      become: false
